@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>桃李满天下</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #4B0C77;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        canvas {
+            display: block;
+            background-color: transparent;
+        }
+        #scoreboard {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            font-size: 24px;
+            font-family: 'Comic Sans MS', cursive, sans-serif;
+            color: white;
+        }
+        #badge {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 60px; /* 增大五角星大小 */
+            color: gold;
+            text-shadow: 0 0 10px #ffd700, 0 0 20px #ffd700, 0 0 30px #ffd700;
+        }
+        #title {
+            position: fixed;
+            top: 20px;
+            width: 100%;
+            text-align: center;
+            font-size: 36px;
+            color: white;
+        }
+        #description {
+            position: fixed;
+            top: 70px;
+            width: 100%;
+            text-align: center;
+            font-size: 20px;
+            color: white;
+        }
+        #congratsText {
+            display: none;
+            position: fixed;
+            top: 55%; /* 文字稍微向下移动 */
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 36px;
+            font-family: 'Comic Sans MS', cursive, sans-serif;
+            color: white;
+            text-shadow: 2px 2px 5px #ffd700;
+            line-height: 1.5;
+            text-align: center;
+        }
+        .floating-text {
+            position: fixed;
+            font-size: 30px;
+            color: #fffb00;
+            text-shadow: 2px 2px 5px #000;
+            pointer-events: none;
+            animation: float 1s ease-out forwards;
+        }
+        @keyframes float {
+            from {
+                opacity: 1;
+                transform: translateY(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateY(-50px);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="title">桃李满天下</div>
+    <div id="description">A5组特别呈现，冲向1000分吧~</div>
+    <canvas id="gameCanvas"></canvas>
+    <div id="scoreboard">得分: 0</div>
+    <div id="badge">⭐</div> 
+    <div id="congratsText">教师节<br/>快乐!</div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreboard = document.getElementById('scoreboard');
+        const badge = document.getElementById('badge');
+        const congratsText = document.getElementById('congratsText');
+        
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        let score = 0;
+        const targetScore = 1000;
+        let speedMultiplier = 1;
+        let isAccelerated = false;
+        let badgeSize = 60; // 五角星初始大小
+
+        const basket = {
+            x: canvas.width / 2 - 50,
+            y: canvas.height - 100,
+            width: 180,
+            height: 58,
+            speed: 15
+        };
+        const fruits = [];
+
+        const basketImage = new Image();
+        basketImage.src = 'https://www.tsinghua.edu.cn/image/logo180.png';
+
+        function drawBasket() {
+            ctx.drawImage(basketImage, basket.x, basket.y, basket.width, basket.height);
+        }
+
+        function createFruit() {
+            const fruitTypes = ['🍑', '🍈', '⭐', '💣', '⏩'];
+            const fruit = {
+                x: Math.random() * canvas.width,
+                y: 0,
+                size: 30,
+                type: fruitTypes[Math.floor(Math.random() * fruitTypes.length)],
+                speed: (Math.random() * 5 + 3) * speedMultiplier
+            };
+
+            if (Math.random() < 0.4 && fruit.type !== '💣') {
+                fruit.type = '💣';
+            }
+
+            fruits.push(fruit);
+        }
+
+        function drawFruits() {
+            fruits.forEach((fruit, index) => {
+                ctx.font = fruit.size + 'px Arial';
+                ctx.fillText(fruit.type, fruit.x, fruit.y);
+                fruit.y += fruit.speed;
+
+                if (fruit.y + fruit.size > basket.y && fruit.x > basket.x && fruit.x < basket.x + basket.width) {
+                    handleFruitEffect(fruit.type, fruit.x, fruit.y);
+                    fruits.splice(index, 1);
+                }
+
+                if (fruit.y > canvas.height) {
+                    fruits.splice(index, 1);
+                }
+            });
+        }
+
+        function handleFruitEffect(fruitType, x, y) {
+            if (fruitType === '🍑' || fruitType === '🍈') {
+                score += 100;
+                showFloatingText("+100", x, y);
+            } else if (fruitType === '⭐') {
+                score += 200;
+                showFloatingText("+200", x, y);
+            } else if (fruitType === '💣') {
+                score = Math.max(0, score - 100);
+                showFloatingText("-100", x, y, "red");
+            } else if (fruitType === '⏩') {
+                if (!isAccelerated) {
+                    activateSpeedBoost();
+                }
+                showFloatingText("加速!", x, y, "#00ff00");
+            }
+
+            scoreboard.innerText = `得分: ${score}`;
+            if (score >= targetScore) {
+                animateBadge();
+            }
+        }
+
+        function showFloatingText(text, x, y, color = "#fffb00") {
+            const floatingText = document.createElement("div");
+            floatingText.classList.add("floating-text");
+            floatingText.style.left = `${x}px`;
+            floatingText.style.top = `${y}px`;
+            floatingText.style.color = color;
+            floatingText.textContent = text;
+            document.body.appendChild(floatingText);
+
+            setTimeout(() => {
+                floatingText.remove();
+            }, 1000);
+        }
+
+        function activateSpeedBoost() {
+            isAccelerated = true;
+            speedMultiplier *= 1.5;
+
+            setTimeout(() => {
+                speedMultiplier = 1;
+                isAccelerated = false;
+            }, 5000);
+        }
+
+        function animateBadge() {
+            badge.style.display = 'block';
+            badgeSize = 60; // 五角星从更大的尺寸开始
+            growBadge();
+        }
+
+        function growBadge() {
+            badgeSize += 2;
+            badge.style.fontSize = `${badgeSize}px`;
+
+            if (badgeSize < 250) { // 增加五角星最大尺寸
+                requestAnimationFrame(growBadge);
+            } else {
+                congratsText.style.display = 'block';
+            }
+        }
+
+        function moveBasketWithMouseOrTouch(event) {
+            const clientX = event.touches ? event.touches[0].clientX : event.clientX;
+            basket.x = clientX - basket.width / 2;
+        }
+
+        // 鼠标或触摸事件来移动篮子
+        canvas.addEventListener('mousemove', moveBasketWithMouseOrTouch);
+        canvas.addEventListener('touchmove', moveBasketWithMouseOrTouch);
+
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawBasket();
+            drawFruits();
+
+            if (Math.random() < 0.03) {
+                createFruit();
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        basketImage.onload = () => {
+            gameLoop();
+        };
+    </script>
+</body>
+</html>
