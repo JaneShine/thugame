@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>投资大师挑战赛</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f0f8ff;
+            margin: 0;
+            padding: 0;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .container {
+            margin: 20px auto;
+            width: 80%;
+            max-width: 800px;
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        .info {
+            font-size: 18px;
+            margin: 10px 0;
+        }
+        .event {
+            font-size: 20px;
+            color: #ff6347;
+            margin: 20px 0;
+            padding: 10px;
+            background-color: #ffe4e1;
+            border-radius: 5px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            padding: 10px;
+            border: 1px solid #ddd;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        canvas {
+            margin-top: 20px;
+            width: 100%;
+            height: 300px;
+            border: 1px solid #ddd;
+        }
+        input {
+            width: 80px;
+            padding: 5px;
+            font-size: 16px;
+            text-align: center;
+        }
+        .red {
+            color: red;
+        }
+        .green {
+            color: green;
+        }
+        .result {
+            font-size: 24px;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+        .medal {
+            font-size: 32px;
+            font-weight: bold;
+            margin-top: 20px;
+            animation: growFlower 2s ease-in-out;
+            display: inline-block;
+            background-color: #ffd700;
+            color: white;
+            padding: 20px;
+            border-radius: 50%;
+            transform: scale(0);
+            animation-fill-mode: forwards;
+        }
+        @keyframes growFlower {
+            0% { transform: scale(0); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+    <h1>投资大师挑战赛</h1>
+    <div class="container">
+        <div class="info">
+            <p>初始资金：<span id="initial-fund">100万</span></p>
+            <p>当前资金：<span id="current-fund">100万</span></p>
+            <p>剩余操作次数：<span id="remaining-actions">10</span></p>
+        </div>
+        <div class="event" id="event"></div>
+        <table>
+            <thead>
+                <tr>
+                    <th>资产类别</th>
+                    <th>当前金额（万）</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>股票</td>
+                    <td><span id="stock">0万</span></td>
+                </tr>
+                <tr>
+                    <td>债券</td>
+                    <td><span id="bond">0万</span></td>
+                </tr>
+                <tr>
+                    <td>黄金</td>
+                    <td><span id="gold">0万</span></td>
+                </tr>
+                <tr>
+                    <td>现金</td>
+                    <td><span id="cash">100万</span></td>
+                </tr>
+            </tbody>
+        </table>
+        <div id="setup" style="margin-bottom: 20px;">
+            <p>初始建仓：</p>
+            <label>股票：<input type="number" id="setup-stock" value="0"></label>
+            <label>债券：<input type="number" id="setup-bond" value="0"></label>
+            <label>黄金：<input type="number" id="setup-gold" value="0"></label>
+            <button onclick="setup()">确认建仓</button>
+        </div>
+        <div id="actions" style="display: none;">
+            <p>加仓/减仓：</p>
+            <label>股票：<input type="number" id="adjust-stock" value="0"></label>
+            <label>债券：<input type="number" id="adjust-bond" value="0"></label>
+            <label>黄金：<input type="number" id="adjust-gold" value="0"></label>
+            <button onclick="adjust()">确认操作</button>
+            <button onclick="hold()">保持当前持仓</button>
+            <button onclick="reset()">重置游戏</button>
+        </div>
+        <canvas id="chart"></canvas>
+        <div class="result" id="result" style="display: none;"></div>
+        <div class="medal" id="medal" style="display: none;"></div>
+    </div>
+
+    <script>
+        // 初始化资金和投资组合
+        let initialFund = 100; // 初始资金 100 万
+        let cash = initialFund; // 现金
+        let stock = 0; // 股票投资
+        let bond = 0; // 债券投资
+        let gold = 0; // 黄金投资
+        let remainingActions = 10; // 剩余操作次数
+        let currentState = null; // 当前宏观经济状态
+
+        // 走势图数据
+        let fundHistory = [initialFund]; // 资金历史记录
+
+        // 更新页面显示
+        function updateDisplay() {
+            const currentFund = stock + bond + gold + cash;
+            document.getElementById('current-fund').textContent = currentFund + '万';
+            document.getElementById('cash').textContent = cash + '万';
+            document.getElementById('stock').textContent = stock + '万';
+            document.getElementById('bond').textContent = bond + '万';
+            document.getElementById('gold').textContent = gold + '万';
+            document.getElementById('remaining-actions').textContent = remainingActions;
+            drawChart(); // 更新走势图
+        }
+
+        // 宏观经济状态（基于美林时钟）
+        const macroStates = [
+            { name: "经济复苏", effect: { stock: 1.15, bond: 1.05 } }, // 股票和债券收益增加
+            { name: "经济过热", effect: { stock: 1.2, bond: 0.95 } }, // 股票收益增加，债券收益减少
+            { name: "滞胀", effect: { stock: 0.8, bond: 0.9, gold: 1.2 } }, // 股票和债券收益减少，黄金收益增加
+            { name: "经济衰退", effect: { stock: 0.9, bond: 1.1, gold: 1.05 } }, // 股票收益减少，债券和黄金收益增加
+            { name: "黑天鹅导致市场崩盘", effect: { stock: 0.5, bond: 0.7, gold: 1.5 } }, // 股票和债券暴跌，黄金暴涨
+            { name: "政策不及预期", effect: { stock: 0.9, bond: 0.95 } }, // 股票和债券收益减少
+            { name: "经济刺激政策", effect: { stock: 1.1, bond: 1.05 } } // 股票和债券收益增加
+        ];
+
+        // 生成宏观经济状态
+        function generateMacroState() {
+            let nextState = null;
+
+            // 根据当前状态调整概率
+            if (currentState === "衰退阶段" || currentState === "滞胀阶段") {
+                // 经济差时，可能触发经济刺激政策
+                if (Math.random() < 0.3) {
+                    nextState = macroStates[6]; // 经济刺激政策
+                }
+            }
+
+            if (currentState === "过热阶段") {
+                // 经济过热时，增加黑天鹅事件概率
+                if (Math.random() < 0.4) {
+                    nextState = macroStates[4]; // 市场崩盘
+                }
+            }
+
+            // 如果没有触发特殊事件，随机选择下一个状态
+            if (!nextState) {
+                const states = macroStates.filter((state, index) => index < 4); // 排除市场崩盘和政策利空
+                nextState = states[Math.floor(Math.random() * states.length)];
+            }
+
+            currentState = nextState.name;
+            document.getElementById('event').textContent = currentState;
+            applyMacroEffect(nextState.effect);
+        }
+
+        // 应用宏观经济状态效果
+        function applyMacroEffect(effect) {
+            const oldStock = stock;
+            const oldBond = bond;
+            const oldGold = gold;
+
+            stock = Math.round(stock * (effect.stock || 1));
+            bond = Math.round(bond * (effect.bond || 1));
+            gold = Math.round(gold * (effect.gold || 1));
+
+            // 更新颜色显示
+            document.getElementById('stock').className = stock > oldStock ? 'red' : 'green';
+            document.getElementById('bond').className = bond > oldBond ? 'red' : 'green';
+            document.getElementById('gold').className = gold > oldGold ? 'red' : 'green';
+
+            fundHistory.push(stock + bond + gold + cash); // 记录资金历史
+            updateDisplay();
+        }
+
+        // 调整投资组合
+        function adjust() {
+            if (remainingActions <= 0) {
+                alert("操作次数已用完！");
+                return;
+            }
+
+            const adjustStock = parseInt(document.getElementById('adjust-stock').value);
+            const adjustBond = parseInt(document.getElementById('adjust-bond').value);
+            const adjustGold = parseInt(document.getElementById('adjust-gold').value);
+
+            const totalAdjust = Math.abs(adjustStock) + Math.abs(adjustBond) + Math.abs(adjustGold);
+            const totalCashNeeded = Math.max(0, adjustStock + adjustBond + adjustGold);
+
+            if (totalCashNeeded > cash) {
+                alert("现金不足，无法完成操作！");
+                return;
+            }
+
+            // 减仓逻辑
+            if (adjustStock < 0 && stock >= -adjustStock) {
+                stock += adjustStock;
+                cash -= adjustStock;
+            }
+            if (adjustBond < 0 && bond >= -adjustBond) {
+                bond += adjustBond;
+                cash -= adjustBond;
+            }
+            if (adjustGold < 0 && gold >= -adjustGold) {
+                gold += adjustGold;
+                cash -= adjustGold;
+            }
+
+            // 加仓逻辑
+            if (adjustStock > 0) {
+                stock += adjustStock;
+                cash -= adjustStock;
+            }
+            if (adjustBond > 0) {
+                bond += adjustBond;
+                cash -= adjustBond;
+            }
+            if (adjustGold > 0) {
+                gold += adjustGold;
+                cash -= adjustGold;
+            }
+
+            remainingActions--;
+            updateDisplay();
+            generateMacroState(); // 每次操作后生成宏观经济状态
+
+            // 检查是否结束游戏
+            if (remainingActions <= 0) {
+                endGame();
+            }
+        }
+
+        // 保持当前持仓
+        function hold() {
+            if (remainingActions <= 0) {
+                alert("操作次数已用完！");
+                return;
+            }
+            remainingActions--;
+            generateMacroState(); // 保持持仓时也触发宏观经济状态
+
+            // 检查是否结束游戏
+            if (remainingActions <= 0) {
+                endGame();
+            }
+        }
+
+        // 初始建仓
+        function setup() {
+            const setupStock = parseInt(document.getElementById('setup-stock').value);
+            const setupBond = parseInt(document.getElementById('setup-bond').value);
+            const setupGold = parseInt(document.getElementById('setup-gold').value);
+
+            if (setupStock + setupBond + setupGold > initialFund) {
+                alert("初始建仓金额不能超过 100 万！");
+                return;
+            }
+
+            stock = setupStock;
+            bond = setupBond;
+            gold = setupGold;
+            cash = initialFund - stock - bond - gold;
+
+            document.getElementById('setup').style.display = 'none';
+            document.getElementById('actions').style.display = 'block';
+            updateDisplay();
+            generateMacroState(); // 建仓后立即触发宏观经济状态
+        }
+
+        // 重置游戏
+        function reset() {
+            initialFund = 100;
+            cash = initialFund;
+            stock = 0;
+            bond = 0;
+            gold = 0;
+            remainingActions = 10;
+            currentState = null;
+            fundHistory = [initialFund]; // 重置资金历史
+            document.getElementById('setup').style.display = 'block';
+            document.getElementById('actions').style.display = 'none';
+            document.getElementById('event').textContent = '';
+            document.getElementById('result').style.display = 'none';
+            document.getElementById('medal').style.display = 'none';
+            updateDisplay();
+        }
+
+        // 绘制走势图
+        function drawChart() {
+            const canvas = document.getElementById('chart');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 计算资金历史数据
+            const maxFund = Math.max(...fundHistory);
+            const minFund = Math.min(...fundHistory);
+            const scaleY = canvas.height / (maxFund - minFund);
+            const scaleX = canvas.width / (fundHistory.length - 1);
+
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height - (fundHistory[0] - minFund) * scaleY);
+            for (let i = 1; i < fundHistory.length; i++) {
+                ctx.lineTo(i * scaleX, canvas.height - (fundHistory[i] - minFund) * scaleY);
+            }
+            ctx.strokeStyle = '#007bff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+
+        // 游戏结束
+        function endGame() {
+            const finalFund = stock + bond + gold + cash;
+            const rateOfReturn = ((finalFund - initialFund) / initialFund) * 100;
+            const resultText = `游戏结束！您的最终资金为：${finalFund}万；累计收益率是：<span class="${rateOfReturn >= 0 ? 'red' : 'green'}">${rateOfReturn.toFixed(2)}%</span>`;
+            document.getElementById('result').innerHTML = resultText;
+            document.getElementById('result').style.display = 'block';
+
+            // 授予勋章
+            let title = "";
+            if (rateOfReturn >= 50) {
+                title = "投资大师";
+            } else if (rateOfReturn >= 30) {
+                title = "稳健投资者";
+            } else if (rateOfReturn >= 10) {
+                title = "普通玩家";
+            } else if (rateOfReturn >= 0) {
+                title = "保本达人";
+            } else if (rateOfReturn >= -10) {
+                title = "小亏玩家";
+            } else if (rateOfReturn >= -30) {
+                title = "亏损专家";
+            } else {
+                title = "破产玩家";
+            }
+            document.getElementById('medal').textContent = `恭喜您获得称号：${title}`;
+            document.getElementById('medal').style.display = 'block';
+        }
+
+        // 初始化显示
+        updateDisplay();
+    </script>
+</body>
+</html>
